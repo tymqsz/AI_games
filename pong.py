@@ -24,7 +24,7 @@ class Game():
 
         #objects
         self.player1 = Player((0, 350), (0, 450), 2)
-        self.player2 = Player((800, 350), (800, 450), 3, auto=True)
+        self.player2 = Player((800, 350), (800, 450), 3)
 
         self.ball = Ball(width//2, height//2, speed=400, acceleration=self.ball_acceleration)
 
@@ -51,7 +51,7 @@ class Game():
         self.chandler_hor = self.space.add_collision_handler(1, 5)
         self.chandler_hor.pre_solve = lambda arbiter, space, data: self.ball.change_velocity(None, 1, -1, angle=False,
                                                                                             arbiter=arbiter, space=space, data=data)
-
+    
     def add_objects(self, objects):
         for obj in objects:
             self.space.add(obj)
