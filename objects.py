@@ -73,7 +73,7 @@ class Player():
     
         return 0
     
-    def move(self, keys=[], ball=None, height=800):
+    def move(self, dir=0, ball=None, height=800):
         if self.auto:
             rel_pos = (self.body.position.y - ball.body.position.y) + 400
 
@@ -86,9 +86,9 @@ class Player():
                 self.body.velocity = (0, -self.speed)
         else:
             inbounds = self.in_bounds(height)
-            if keys[pygame.K_UP] and (inbounds == 3 or inbounds == 2):
+            if dir == 1 and (inbounds == 3 or inbounds == 2):
                 self.body.velocity = (0, -self.speed)
-            elif keys[pygame.K_DOWN] and (inbounds == 3 or inbounds == 1):
+            elif dir == 2 and (inbounds == 3 or inbounds == 1):
                 self.body.velocity = (0, self.speed)
             else:
                 self.body.velocity = 0, 0
