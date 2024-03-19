@@ -19,15 +19,20 @@ class Qlearn():
                 action = np.argmax(self.Q[observation])
             
             new_observation, reward, end_of_ep = self.env.step(action)
-            
-            max_q = np.argmax(self.Q[new_observation])
-
-            self.Q[observation][action] = (1-learning_rate)*self.Q[observation][action] + learning_rate*(reward + gamma*max_q)
 
             if end_of_ep:
                 observation = self.env.reset()
+                i += 1
+                continue
             else:
                 observation = new_observation
+
+            max_q = np.argmax(self.Q[new_observation])
+
+            observation = observation[0]
+            self.Q[observation][action] = (1-learning_rate)*self.Q[observation][action] + learning_rate*(reward + gamma*max_q)
+
+            
             i += 1
 
             eps = max(eps_min, eps*np.exp(-eps_decay))

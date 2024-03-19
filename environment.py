@@ -3,23 +3,24 @@ from gymnasium import spaces
 import numpy as np
 import pygame
 import pymunk
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3 import PPO, A2C, DQN, TD3
 
 from objects import Ball, Wall, Player
 
 class PongEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
-    def __init__(self, render_mode=None, width=800, height=800):
+    def __init__(self, render_mode=None, width=800, height=800, speed=1.0):
         self.render_mode = render_mode
-        self.FPS = 300
-        self.platform_speed = 500
+        self.FPS = 60
+        self.platform_speed = 500*speed
         self.width = width
         self.height = height
         self.ball_acceleration = 1.04
         self.P1_score = 0
         self.P2_score = 0
         self.paused = False
+        self.reward = 0
+        self.speed = speed
+
         if self.render_mode is not None:
             pygame.init()
             pygame.font.init()
@@ -27,14 +28,14 @@ class PongEnv(gym.Env):
             self.score_text = self.font.render(f'{self.P1_score}:{self.P2_score}', True, (255, 255, 255))
             self.display = pygame.display.set_mode((self.width, self.height))
             self.clock = pygame.time.Clock()
+
         self.space = pymunk.Space()
 
-        self.reward = 0
         #objects
         self.player1 = Player((0, 350), (0, 450), 2, auto=False)
-        self.player2 = Player((800, 350), (800, 450), 3, auto=True, speed=350)
+        self.player2 = Player((800, 350), (800, 450), 3, auto=True)
 
-        self.ball = Ball(width//2, height//2, speed=400, acceleration=self.ball_acceleration)
+        self.ball = Ball(width//2, height//2, speed=400*self.speed, acceleration=self.ball_acceleration)
 
         self.walls = [
             Wall((0, 0), (width, 0), 5),
@@ -60,7 +61,10 @@ class PongEnv(gym.Env):
         self.chandler_hor = self.space.add_collision_handler(1, 5)
         self.chandler_hor.pre_solve = lambda arbiter, space, data: self.ball.change_velocity(None, 1, -1, angle=False,
                                                                                             arbiter=arbiter, space=space, data=data)
-        self.observation_space = spaces.Box(low=0, high=255, shape=(height*width,), dtype=np.float64)
+        
+
+        # action/observation spaces
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
         self.action_space = spaces.Discrete(3)
 
         self.agent = self.player1
@@ -72,8 +76,8 @@ class PongEnv(gym.Env):
     
     def new_scene(self):
         self.ball.body.position = 400, 400
-        Vx = np.random.choice([600, -600], 1, p=[0.5, 0.5])
-        Vy = np.random.choice(np.linspace(-100, 100, num=200), 1)
+        Vx = np.random.choice([400*self.speed, -400*self.speed], 1, p=[0.5, 0.5])
+        Vy = np.random.choice(np.linspace(-100*self.speed, 100*self.speed, num=200), 1)
         self.ball.body.velocity = (Vx, Vy)
 
         self.player1.body.position = 0, 0
@@ -89,37 +93,33 @@ class PongEnv(gym.Env):
         self.P2_score = 0
 
         observation = self._get_obs()
-        info = self._get_info()
 
         self._render_frame()
 
-        
-        # Convert the pixel values to a NumPy array for manipulation
-
-        return observation, {}
+        return observation, False
 
 
     def step(self, action):
         self.agent.move(dir=action, ball=self.ball)
-
-        reward = self.reward
-            
+        reward = self.get_reward(self.P1_score, self.P2_score)
         self.reward = 0
-        terminated = (self.P1_score == 10 or self.P2_score == 10)
+        terminated = (self.P1_score == 3 or self.P2_score == 3)
 
         observation = self._get_obs()
-        info = self._get_info()
         self._render_frame()
 
-        return observation, reward, terminated, False, info
+        return observation, reward, terminated, False
     
     def get_reward(self, my_prev, his_prev):
-        return self.reward
+        return self.reward #0.1*(400-abs(-self.agent.body.position.y-self.ball.body.position.y))
         
     def _get_obs(self):
-        pixel_array = pygame.surfarray.array3d(pygame.display.get_surface())
-        grayscale = np.dot(pixel_array[..., :3], [0.299, 0.587, 0.114])
-        return grayscale.flatten()
+        agent_location = [self.agent.body.position.y]
+        target_info = [self.ball.body.position.x, self.ball.body.position.y,
+                       self.ball.body.velocity.x, self.ball.body.velocity.y]
+        
+        obs = np.array(agent_location+target_info)
+        return obs
     
     def _get_info(self):
         agent_location = [self.agent.body.position.x, self.agent.body.position.y]
@@ -133,15 +133,13 @@ class PongEnv(gym.Env):
         scored = self.ball.scored(self.width)
         if scored == 1:
             self.P2_score += 1
-            self.reward -= 10
             self.new_scene()
         if scored == 2:
             self.P1_score += 1
-            self.reward += 10
+            self.reward += 2
             self.new_scene()
         self.space.step(1 / self.FPS)
-        self.player2.move(ball=self.ball)
-
+        
         if self.render_mode is not None:
             for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -151,6 +149,9 @@ class PongEnv(gym.Env):
             
             self.score_text = self.font.render(f'{self.P1_score}:{self.P2_score}', True, (255, 255, 255))
 
+            self.player2.move(ball=self.ball)
+            
+            
             self.display.fill((0, 0, 0))
             self.player1.draw(self.display)
             self.player2.draw(self.display)
