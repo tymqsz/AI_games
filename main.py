@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from collections import deque
 
 env = gym.make("CartPole-v1")
-agent = Agent(env=env, n_actions=2, n_observations=4, lr=1e-4, batch_size=64, memory_cap=10000, gamma=0.99)
+agent = Agent(env=env, n_actions=2, n_observations=4, lr=1e-4, batch_size=64, memory_cap=10000, gamma=0.99, double_network=True)
 
 
 # TRAINING
