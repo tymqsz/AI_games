@@ -63,7 +63,7 @@ class Agent():
         self.done_memory = np.zeros((self.memory_capacity,), dtype=np.bool_)
 
     def store_memory(self, state, next_state, action, reward, done):
-        # set index to fit into size of memory (self.memory_capacity)
+        # set index to fit into the size of memory (self.memory_capacity)
         idx = self.memory_index % self.memory_capacity if self.memory_index != 0 else 0
 
         self.state_memory[idx] = state
@@ -78,7 +78,7 @@ class Agent():
         self.memory_size = min(self.memory_size + 1, self.memory_capacity)
 
     def act(self, state):
-        # epsilon-greedy based action selection
+        # epsilon-greedy action selection
         if np.random.random() < self.epsilon:
             return self.env.action_space.sample()
         else:
@@ -97,8 +97,6 @@ class Agent():
             action_batch = torch.tensor(self.action_memory[chosen_indices], device=self.device)
             reward_batch = torch.tensor(self.reward_memory[chosen_indices],device=self.device)
             done_batch = torch.tensor(self.done_memory[chosen_indices],device=self.device)
-
-
            
 
             # calculate Q-values of current states

@@ -1,13 +1,11 @@
 from environment import PongEnv
 from DQN import Agent
-from torch import nn 
 import gymnasium as gym
 import matplotlib.pyplot as plt
 from collections import deque
 
 env = gym.make("CartPole-v1")
 agent = Agent(env=env, n_actions=2, n_observations=4, lr=1e-4, batch_size=64, memory_cap=10000, gamma=0.99, double_network=True)
-
 
 # TRAINING
 n_episodes = 500
@@ -48,8 +46,9 @@ while episode < n_episodes:
         print("reached 500 :)")
         break
 
-env = gym.make("CartPole-v1", render_mode="human")
+
 # TESTING
+env = gym.make("CartPole-v1", render_mode="human")
 n_episodes = 5
 episode = 0
 while episode < n_episodes:
