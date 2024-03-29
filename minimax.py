@@ -9,6 +9,16 @@ class MiniMax():
     def get_best_move(self, state, maximize):
         best_move = -1
         possible_moves = self.game.get_possible_moves(state)
+
+        # if clear board, get semi-random move
+        if len(possible_moves) == 9:
+            best_move = np.random.choice(9, p=[0.08, 0.08, 0.08,
+                                               0.08, 0.36, 0.08,
+                                               0.08, 0.08, 0.08])
+            return best_move
+
+
+
         if self.shuffle_moves:
             random.shuffle(possible_moves)
             

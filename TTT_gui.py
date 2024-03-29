@@ -1,5 +1,9 @@
 import tkinter as tk
+from tkinter import ttk
 import numpy as np
+from minimax import MiniMax
+import threading
+from time import sleep
 
 class GameState():
     def __init__(self):
@@ -9,27 +13,27 @@ class GameState():
 
         self.selected_cell = -1
 
-        self.P1_bot = False
-        self.P2_bot = False
+        # change for enum
+        self.players = ["human", "human"]
 
         self.BOARD = [9 for _ in range(9)]
 
         self.player_symbols = [1, 4]
 
 class TTT(tk.Tk):
-    def __init__(self, p1_bot=False, p2_bot=False, render=True):
+    def __init__(self):
         super().__init__()
         self.resizable(0, 0)
         self.geometry("800x800")
-        self.p1_bot = p1_bot
-        self.p2_bot = p2_bot
+        self.bot_reload = 0.4
 
+        self.MiniMax = MiniMax(game=self, shuffle_moves=True)
 
         bg_color = "#3d464a"   
         grid_color = "#1d2124"
         board_color = "#293942"
         board_highlight = "#2f4a5c"
-        button_color = "#236370"
+        button_color = "#4c5e6e"
         self.configure(bg=bg_color)
 
         text_font = ("Arial", 24)
@@ -46,7 +50,7 @@ class TTT(tk.Tk):
         self.board_canvas.create_line(150, 0, 150, 450, width=grid_width, fill=grid_color)
         self.board_canvas.create_line(300, 0, 300, 450, width=grid_width, fill=grid_color)
 
-        # grid buttons creatinon
+        # grid buttons creation
         self.pixel = tk.PhotoImage(width=1, height=1)
         self.cells = []
         for i in range(9):
@@ -61,25 +65,62 @@ class TTT(tk.Tk):
 
             self.cells[i].place(x=x_offset+x*150, y=y_offset+y*150)
         
-        self.reset_button = tk.Button(master=self, text="reset", font=text_font,
+        self.restart_button = tk.Button(master=self, text="restart", font=text_font,
                                       width=5, height=2, background=button_color,
                                       activebackground=board_highlight, highlightthickness=0,
                                       borderwidth=0, command=self.reset)
-        self.reset_button.place(x=50, y=50)
+        self.restart_button.place(x=50, y=50)
+
+        self.won_label = tk.Label(master=self, text=" ", background=button_color, compound="c",
+                                  image=self.pixel, width=250, height=75, font=text_font)
+        self.won_label.place(x=275, y=125)
+
+        self.O_label = tk.Label(master=self, font=text_font, text="O: ", background=button_color)
+        self.X_label = tk.Label(master=self, font=text_font, text="X: ", background=button_color)
+        self.p1_selection = ttk.Combobox(master=self, state="readonly",
+                                         values=["human", "minimax"], width=10, height=5, font=text_font)
+        self.p2_selection = ttk.Combobox(master=self, state="readonly",
+                                         values=["human", "minimax"], width=10, height=5, font=text_font)
+        self.p1_selection.place(x=600, y=25)
+        self.p2_selection.place(x=600, y=75)
+        self.O_label.place(x=550, y=25)
+        self.X_label.place(x=550, y=75)
         
+        self.p1_selection.bind("<<ComboboxSelected>>", self.change_p1)
+        self.p2_selection.bind("<<ComboboxSelected>>", self.change_p2)
+
         self.state = GameState()
-        self.state.P1_bot = self.p1_bot
-        self.state.P2_bot = self.p2_bot
+        
+        if self.state.players[0] != "human":
+            self.state.bot_idx.append(0)
+        if self.state.players[1] != "human":
+            self.state.bot_idx.append(1)
 
 
-        if not self.state.P1_bot:
+        if self.state.players[0] == "human":
             self.state.SEEK_HUMAN_INPUT = True
+
+        game_thread = threading.Thread(target=self.play)
+        self.after(100, lambda: game_thread.start())
+
+    def play(self):
+        maxi_player = [True, False]
+
+        while True:
+            maxi = maxi_player[self.state.n_plays % 2]
+
+            if self.state.players[self.state.n_plays%2] != "human":
+                sleep(self.bot_reload)
+                move = self.MiniMax.get_best_move(self.state.BOARD, maxi)
+                self.state.selected_cell = move
+                self.move()
 
     def reset(self):
         self.state = GameState()
-        self.state.P1_bot = self.p1_bot
-        self.state.P2_bot = self.p2_bot
+        self.state.players[0] = self.p1_selection.get()
+        self.state.players[1] = self.p2_selection.get()
 
+        self.won_label.config(text="")
         self.clear_board()
 
     def clear_board(self):
@@ -88,11 +129,10 @@ class TTT(tk.Tk):
     
     def click_cell(self, cell_idx):
         self.state.selected_cell = cell_idx
-        self.move(human=True)
+        self.move()
 
-    def move(self, human):
+    def move(self):
         if self.state.EOG:
-            print("end of game")
             return
         
         value = self.state.player_symbols[self.state.n_plays % 2]
@@ -106,14 +146,15 @@ class TTT(tk.Tk):
         symbol = "X" if value == 4 else "O"
         self.cells[self.state.selected_cell].config(text=symbol)
         
-        if human:
-            self.state.SEEK_HUMAN_INPUT = False
-        else:
-            self.state.SEEK_HUMAN_INPUT = True
-
-    # function allowing outside bots to play game
-    def set_input(self, cell):
-        self.state.selected_cell = cell
+        if self.state.EOG:
+            winner = self.evaluate_state(self.state.BOARD)
+            if winner == 0:
+                txt = "Draw!"
+            elif winner == 1:
+                txt = "\'O\' player won"
+            else:
+                txt = "\'X\' player won"
+            self.won_label.config(text=txt)
     
     @staticmethod
     def evaluate_state(BOARD):
@@ -161,3 +202,11 @@ class TTT(tk.Tk):
         future_board[move] = self.state.player_symbols[player_idx]
 
         return future_board
+    
+    def change_p1(self, event):
+        value = self.p1_selection.get()
+        self.state.P1 = value
+
+    def change_p2(self, event):
+        value = self.p2_selection.get()
+        self.state.P2 = value
