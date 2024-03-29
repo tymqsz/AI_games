@@ -1,18 +1,23 @@
 import numpy as np
+import random
 
 class MiniMax():
-    def __init__(self, game):
+    def __init__(self, game, shuffle_moves=True):
         self.game = game
+        self.shuffle_moves = shuffle_moves
 
     def get_best_move(self, state, maximize):
-        best_move = [-1, -1]
-
+        best_move = -1
+        possible_moves = self.game.get_possible_moves(state)
+        if self.shuffle_moves:
+            random.shuffle(possible_moves)
+            
         """ go through all possible moves and select
             the one with the highest/lowest score
             (for maximizing/minimizing player) """
         if maximize:
             best_value = -np.inf
-            for move in self.game.possible_moves(state):
+            for move in possible_moves:
                 future_state = self.game.future_state(state, move, 0)
 
                 value = self.minimax(future_state, -np.inf, np.inf, maximize=False)
@@ -22,7 +27,7 @@ class MiniMax():
                     best_move = move
         else:
             best_value = np.inf
-            for move in self.game.possible_moves(state):
+            for move in possible_moves:
                 future_state = self.game.future_state(state, move, 1)
 
                 value = self.minimax(future_state, -np.inf, np.inf, maximize=True)
@@ -37,10 +42,15 @@ class MiniMax():
         if winner is not None:
             return winner # end of game
 
+        possible_moves = self.game.get_possible_moves(state)
+        if self.shuffle_moves:
+            np.random.shuffle(self.game.get_possible_moves(state))
+            
+
         # go through all possible moves
         if maximize:
             max_val = -np.inf
-            for move in self.game.possible_moves(state):
+            for move in possible_moves:
                 future_state = self.game.future_state(state, move, 0) # calculate next state
 
                 candidate = self.minimax(future_state, alpha, beta, maximize=False) # get value of next state
@@ -54,7 +64,7 @@ class MiniMax():
             return max_val
         else:
             min_val = np.inf
-            for move in self.game.possible_moves(state):
+            for move in possible_moves:
                 future_state = self.game.future_state(state, move, 1)
 
                 candidate = self.minimax(future_state, alpha, beta, maximize=True)

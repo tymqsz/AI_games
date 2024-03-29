@@ -1,72 +1,52 @@
-import tkinter
 import numpy as np
 
-class Window():
-    symbols = [' ', 'O', ' ', ' ', 'X'] # 1st indx - O, 4th - X
-    
-    def __init__(self, board):
-        self.board = board
+class GameState():
+    EOG = False
+    n_plays = 0
 
-    def display_console(self):
-        print("-"*10)
-        for y in range(3):
-            print("|", end="")
-            for x in range(3):
-                symbol = Window.symbols[int(self.board[y][x])]
-                print(symbol, "|", end="")
-            print()
-            print("-"*10)
-        print("\n")
+    selected_cell = -1
+
+    P1_bot = False
+    P2_bot = False
+
+    BOARD = [0 for _ in range(9)]
+
+    player_symbols = [1, 4]
 
 class TicTacToe():
-    player_symbols = [1, 4]
-    def __init__(self, p1_bot=False, p2_bot=False):
-        self.BOARD = np.zeros((3, 3))
-        self.P1_bot = p1_bot
-        self.P2_bot = p2_bot
+    def __init__(self, p1_bot=False, p2_bot=False, draw_board=False):
+        self.STATE = GameState()
+        self.p1_bot = p1_bot
+        self.p2_bot = p2_bot
 
-        self.window = Window(self.BOARD)
+        self.STATE.P1_bot = self.p1_bot
+        self.STATE.P2_bot = self.p2_bot
 
-        self.n_plays = 0
-    
-        self.selected_row = -1
-        self.selected_col = -1
+        #self.window = Window(self.BOARD)
 
-        self.EOG = False
+    def reset_board(self):
+        self.STATE = GameState()   
+
+        self.STATE.P1_bot = self.p1_bot
+        self.STATE.P2_bot = self.p2_bot
+
+        self.display_console()
+        #self.window.set_state(self.STATE)
 
     def play(self):
-        winner = self.evaluate_state(self.BOARD)
-        if winner is not None:
-            if winner == 0:
-                print("Draw")
-            else:
-                print(f"Winner: P{winner}")
+        # update position with appropriate symbol (1/4)
+        self.STATE.BOARD[self.STATE.selected_cell] = self.STATE.player_symbols[self.STATE.n_plays % 2]
 
-            self.EOG = True
-            self.display()
-            return
+        self.STATE.n_plays += 1
         
-        if self.n_plays % 2 == 0:
-            if not self.P1_bot:
-                self.get_console_input()
-        else:
-            if not self.P2_bot:
-                self.get_console_input()
+        self.display_console()
 
-        if self.BOARD[self.selected_row][self.selected_col] != 0:
-            print(f"invalid play\nWinner: P{(self.n_plays+1) % 2 + 1}")
-            
-            self.EOG = True
-            return
-            
-        self.BOARD[self.selected_row][self.selected_col] = TicTacToe.player_symbols[self.n_plays % 2]
-
-        self.n_plays += 1
-        self.display()
+        # check if end of game
+        self.STATE.EOG = True if self.evaluate_state(self.STATE.BOARD) is not None else False
     
-    def set_input(self, row, col):
-        self.selected_row = int(row)
-        self.selected_col = int(col)
+    # function allowing outside bots to play game
+    def set_input(self, cell):
+        self.STATE.selected_cell = cell
     
     def get_console_input(self):
         row = input("row: ")
@@ -74,12 +54,14 @@ class TicTacToe():
         
         assert(row.isnumeric() and col.isnumeric())
 
-        self.selected_row = int(row)
-        self.selected_col = int(col)
+        self.STATE.selected_cell = int(row)*3+int(col)
     
     @staticmethod
     def evaluate_state(BOARD):
         winner = None # non ending state
+
+        # change format for easier calc
+        BOARD = np.array(BOARD).reshape(3, 3)
 
         # check rows and columns
         for i in range(3):
@@ -99,14 +81,13 @@ class TicTacToe():
         if diag1_sum == 12 or diag2_sum == 12:
             winner = -1
         
-
-        if len(TicTacToe.possible_moves(BOARD)) == 0 and winner is None:
+        if len(TicTacToe.get_possible_moves(BOARD)) == 0 and winner is None:
             return 0 # draw 
         
         return winner
     
     @staticmethod
-    def possible_moves(BOARD):
+    def get_possible_moves(BOARD):
         pm = []
         for y in range(3):
             for x in range(3):
@@ -115,6 +96,7 @@ class TicTacToe():
 
         return pm
     
+    # function calculating future state (for minimax alg)
     @staticmethod
     def future_state(BOARD, move, player_idx):
         future_board = BOARD.copy()
@@ -122,6 +104,20 @@ class TicTacToe():
         future_board[move[0]][move[1]] = TicTacToe.player_symbols[player_idx]
 
         return future_board
-    
-    def display(self):
-        self.window.display_console()
+
+    def display_console(self):
+        print("-"*10)
+        for y in range(3):
+            print("|", end="")
+            for x in range(3):
+                if self.STATE.BOARD[y*3+x] == 1:
+                    symbol = '0'
+                elif self.STATE.BOARD[y*3+x] == 4:
+                    symbol = 'X'
+                else:
+                    symbol = ' '
+
+                print(symbol, "|", end="")
+            print()
+            print("-"*10)
+        print("\n")

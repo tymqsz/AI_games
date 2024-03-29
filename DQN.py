@@ -9,11 +9,11 @@ class DQN(nn.Module):
         
         # Sequential NN definition
         self.network = nn.Sequential(
-        nn.Linear(n_observations, 256),
+        nn.Linear(n_observations, 512),
         nn.ReLU(),
-        nn.Linear(256, 128),
+        nn.Linear(512, 256),
         nn.ReLU(),
-        nn.Linear(128, n_actions)
+        nn.Linear(256, n_actions)
         ).to(device)
 
         # optimizer, loss_fn set to provided else defaulted to Adam and Mean Squared Error
@@ -27,14 +27,16 @@ class DQN(nn.Module):
 
 
 class Agent():
-    def __init__(self, env, n_observations, n_actions, lr=1e-4, batch_size=128,
-                 memory_cap=10000, gamma=0.99, optim=None, loss_fn=None, double_network=False):
+    def __init__(self, env, n_observations, n_actions, model_path=None, lr=1e-4, batch_size=128,
+                 memory_cap=10000, gamma=0.99, eps_decay=0.9995, optim=None, loss_fn=None, double_network=False, tau=0.05):
+                 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.double_network = double_network
+        self.n_actions = n_actions
 
         # hyperparameters
         self.epsilon = 1
-        self.epsilon_decay = 0.9995
+        self.epsilon_decay = eps_decay
         self.epsilon_min = 0.02
         self.gamma = gamma
         self.batch_size = batch_size
@@ -46,11 +48,15 @@ class Agent():
             self.policy_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn)
             self.target_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn)
 
-            self.target_network.load_state_dict(self.policy_network.state_dict()) # copy default weights
+            if model_path is not None:
+                self.policy_network.load_state_dict(torch.load(model_path))
 
-            self.target_update_rate = 0.005
+            self.target_network.load_state_dict(self.policy_network.state_dict()) # copy default weights
+            self.tau = tau
         else:
             self.policy_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn)
+            if model_path is not None:
+                self.policy_network.load_state_dict(torch.load(model_path))
 
         # replay memory as a set of 5 numpy arrays
         self.memory_index = 0
@@ -77,16 +83,46 @@ class Agent():
         # update fullness of memory
         self.memory_size = min(self.memory_size + 1, self.memory_capacity)
 
-    def act(self, state):
+    def learning_act(self, state, legal_moves_mask=None):
         # epsilon-greedy action selection
         if np.random.random() < self.epsilon:
-            return self.env.action_space.sample()
+            if legal_moves_mask is not None:
+                possible_actions = np.arange(start=0, stop=self.n_actions)[legal_moves_mask]
+            else:
+                possible_actions = np.arange(start=0, stop=self.n_actions)
+            return np.random.choice(possible_actions)
         else:
             with torch.no_grad():
-                Q_values = self.policy_network.forward(torch.tensor(np.array([state]),device=self.device))
+                Q_values = self.policy_network.forward(torch.tensor(np.array([state], dtype=np.float32),device=self.device))
+                Q_values = Q_values.cpu().numpy()[0]
+                
+                if legal_moves_mask is not None:
+                    legal_moves_mask = np.array(legal_moves_mask)
+                    possible_actions = Q_values[legal_moves_mask]
+                else:
+                    possible_actions = Q_values
 
-                return torch.argmax(Q_values).item()
+                max_Q_val = np.max(possible_actions)
+                max_action = int(np.where(Q_values == max_Q_val)[0])
+
+            return max_action
     
+    def act(self, state, legal_moves_mask=None):
+        with torch.no_grad():
+            Q_values = self.policy_network.forward(torch.tensor(np.array([state], dtype=np.float32),device=self.device))
+            Q_values = Q_values.cpu().numpy()[0]
+            
+            if legal_moves_mask is not None:
+                legal_moves_mask = np.array(legal_moves_mask)
+                possible_actions = Q_values[legal_moves_mask]
+            else:
+                possible_actions = Q_values
+
+            max_Q_val = np.max(possible_actions)
+            max_action = int(np.where(Q_values == max_Q_val)[0])
+
+            return max_action
+        
     def learn(self):
         if self.memory_size >= self.batch_size:
             # select batch of memories
@@ -123,12 +159,12 @@ class Agent():
             
             # update policy network based on target
             if self.double_network:
-                target_net_state_dict = self.target_network.state_dict()
-                policy_net_state_dict = self.policy_network.state_dict()
-                for key in policy_net_state_dict:
-                    target_net_state_dict[key] = policy_net_state_dict[key]*self.target_update_rate +\
-                                                 target_net_state_dict[key]*(1-self.target_update_rate)
-                self.target_network.load_state_dict(target_net_state_dict)
+                target_weights = self.target_network.state_dict()
+                policy_weights = self.policy_network.state_dict()
+                for key in policy_weights:
+                    target_weights[key] = policy_weights[key]*self.tau +\
+                                                 target_weights[key]*(1-self.tau)
+                self.target_network.load_state_dict(target_weights)
 
             # update epsilon value
             self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
