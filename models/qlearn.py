@@ -1,6 +1,6 @@
 import numpy as np
 
-class Qlearn():
+class Qlearn_Agent():
     def __init__(self, env):
         self.Q = np.zeros(shape=(env.observation_space.n, env.action_space.n))
         

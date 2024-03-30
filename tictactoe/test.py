@@ -1,6 +1,4 @@
-from TTT_gui import TTT
-
+from TicTacToe import TTT
 
 game = TTT()
-
 game.mainloop()

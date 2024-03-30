@@ -1,12 +1,19 @@
-from DQN import Agent
-from TTT_env import TicTacToe_env
-from TTT_gui import TTT
+from TTT_train_env import TicTacToe_env
+from TicTacToe import TTT
 import numpy as np
 import torch
+import os, sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from models.dqn import DQN_Agent
+
 
 env = TicTacToe_env(random_move_prob=0, DQN_starts=True, draw=False)
 
-model = Agent(env=env, n_actions=9, n_observations=9, batch_size=64,
+model = DQN_Agent(env=env, n_actions=9, n_observations=9, batch_size=64,
               lr=1e-3, eps_decay=0.999, double_network=True, tau=0.4)
 
 def evaluate_model(n_games):

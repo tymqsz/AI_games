@@ -26,7 +26,7 @@ class DQN(nn.Module):
         return logits
 
 
-class Agent():
+class DQN_Agent():
     def __init__(self, env, n_observations, n_actions, model_path=None, lr=1e-4, batch_size=128,
                  memory_cap=10000, gamma=0.99, eps_decay=0.9995, optim=None, loss_fn=None, double_network=False, tau=0.05):
                  

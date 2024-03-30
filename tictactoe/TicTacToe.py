@@ -1,14 +1,20 @@
 import tkinter as tk
 from tkinter import ttk
 import numpy as np
-from minimax import MiniMax
 import threading
 from time import sleep
+import os, sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from models.minimax import MiniMax
+
 
 class GameState():
     def __init__(self):
         self.EOG = False
-        self.SEEK_HUMAN_INPUT = False
         self.n_plays = 0
 
         self.selected_cell = -1
@@ -25,7 +31,8 @@ class TTT(tk.Tk):
         super().__init__()
         self.resizable(0, 0)
         self.geometry("800x800")
-        self.bot_reload = 0.4
+        self.bot_reload = 0.2
+        self.restart_reload = 0.2
 
         self.MiniMax = MiniMax(game=self, shuffle_moves=True)
 
@@ -86,39 +93,31 @@ class TTT(tk.Tk):
         self.O_label.place(x=550, y=25)
         self.X_label.place(x=550, y=75)
         
-        self.p1_selection.bind("<<ComboboxSelected>>", self.change_p1)
-        self.p2_selection.bind("<<ComboboxSelected>>", self.change_p2)
-
         self.state = GameState()
-        
-        if self.state.players[0] != "human":
-            self.state.bot_idx.append(0)
-        if self.state.players[1] != "human":
-            self.state.bot_idx.append(1)
-
-
-        if self.state.players[0] == "human":
-            self.state.SEEK_HUMAN_INPUT = True
 
         game_thread = threading.Thread(target=self.play)
         self.after(100, lambda: game_thread.start())
 
     def play(self):
-        maxi_player = [True, False]
+        is_maxi = [True, False]
 
         while True:
-            maxi = maxi_player[self.state.n_plays % 2]
+            crt_player = self.state.n_plays % 2
+            maxi = is_maxi[crt_player]
 
-            if self.state.players[self.state.n_plays%2] != "human":
+            if self.state.players[crt_player] != "human" and not self.state.EOG:
                 sleep(self.bot_reload)
+
                 move = self.MiniMax.get_best_move(self.state.BOARD, maxi)
                 self.state.selected_cell = move
                 self.move()
 
     def reset(self):
         self.state = GameState()
-        self.state.players[0] = self.p1_selection.get()
-        self.state.players[1] = self.p2_selection.get()
+
+        p1_val, p2_val = self.p1_selection.get(), self.p2_selection.get()
+        self.state.players[0] = p1_val if p1_val != '' else "human" 
+        self.state.players[1] = p2_val if p2_val != '' else "human"
 
         self.won_label.config(text="")
         self.clear_board()
@@ -129,6 +128,11 @@ class TTT(tk.Tk):
     
     def click_cell(self, cell_idx):
         self.state.selected_cell = cell_idx
+
+        # check if cell occupied
+        if self.state.BOARD[cell_idx] != 9:
+            return
+        
         self.move()
 
     def move(self):
@@ -202,11 +206,3 @@ class TTT(tk.Tk):
         future_board[move] = self.state.player_symbols[player_idx]
 
         return future_board
-    
-    def change_p1(self, event):
-        value = self.p1_selection.get()
-        self.state.P1 = value
-
-    def change_p2(self, event):
-        value = self.p2_selection.get()
-        self.state.P2 = value
