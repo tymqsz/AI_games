@@ -4,18 +4,27 @@ import torch.optim
 import numpy as np
 
 class DQN(nn.Module):
-    def __init__(self, n_observations, n_actions, lr, device, optim, loss_fn):
+    def __init__(self, n_observations, n_actions, lr, device, optim, loss_fn, big_net=False):
         super().__init__()
         
         # Sequential NN definition
-        self.network = nn.Sequential(
-        nn.Linear(n_observations, 512),
-        nn.ReLU(),
-        nn.Linear(512, 256),
-        nn.ReLU(),
-        nn.Linear(256, n_actions)
-        ).to(device)
-
+        if not big_net:
+            self.network = nn.Sequential(
+            nn.Linear(n_observations, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, n_actions)
+            ).to(device)
+        else:
+            self.network = nn.Sequential(
+            nn.Linear(n_observations, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, n_actions)
+            ).to(device)
+        
         # optimizer, loss_fn set to provided else defaulted to Adam and Mean Squared Error
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr) if optim is None else optim
         self.loss_fn = nn.MSELoss() if loss_fn is None else loss_fn
@@ -23,12 +32,13 @@ class DQN(nn.Module):
     def forward(self, x):
         logits = self.network(x)
 
+        logits = nn.Sigmoid()(logits)
         return logits
 
 
 class DQN_Agent():
-    def __init__(self, env, n_observations, n_actions, model_path=None, lr=1e-4, batch_size=128,
-                 memory_cap=10000, gamma=0.99, eps_decay=0.9995, optim=None, loss_fn=None, double_network=False, tau=0.05):
+    def __init__(self, n_observations, n_actions, env=None, model_path=None, lr=1e-4, batch_size=128, memory_cap=10000,
+                 gamma=0.99, eps_decay=0.9995, optim=None, loss_fn=None, double_network=False, tau=0.05, big_net=False):
                  
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.double_network = double_network
@@ -45,10 +55,11 @@ class DQN_Agent():
 
         # init DQN
         if double_network:
-            self.policy_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn)
-            self.target_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn)
+            self.policy_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn, big_net=big_net)
+            self.target_network = DQN(n_observations, n_actions, lr, self.device, optim, loss_fn, big_net=big_net)
 
             if model_path is not None:
+                print(model_path)
                 self.policy_network.load_state_dict(torch.load(model_path))
 
             self.target_network.load_state_dict(self.policy_network.state_dict()) # copy default weights
@@ -153,7 +164,9 @@ class DQN_Agent():
             
             # calculate loss and optimize
             loss = self.policy_network.loss_fn(current_Q_values, target_Q_values)
+            
             loss.backward()
+            #nn.utils.clip_grad_value_(self.policy_network.parameters(), clip_value=1.0)
             self.policy_network.optimizer.step()
             self.policy_network.optimizer.zero_grad()
             

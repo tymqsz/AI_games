@@ -10,7 +10,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from models.minimax import MiniMax
-
+from models.dqn import DQN_Agent
 
 class GameState():
     def __init__(self):
@@ -31,10 +31,26 @@ class TTT(tk.Tk):
         super().__init__()
         self.resizable(0, 0)
         self.geometry("800x800")
-        self.bot_reload = 0.2
+        self.bot_reload_time = 0.2
         self.restart_reload = 0.2
 
-        self.MiniMax = MiniMax(game=self, shuffle_moves=True)
+        # available opponent models
+        MINIMAX = MiniMax(game=self, shuffle_moves=True)
+        DDQN_O_hard = DQN_Agent(n_actions=9, n_observations=9,
+                                model_path="/home/tymqsz/AI_games/weights/TTT_O_DDQN_HARD.pt")
+        DDQN_O_easy = DQN_Agent(n_actions=9, n_observations=9,
+                                model_path="/home/tymqsz/AI_games/weights/TTT_O_DDQN_EASY.pt")
+        DDQN_X_hard = DQN_Agent(n_actions=9, n_observations=9,
+                                model_path="/home/tymqsz/AI_games/weights/TTT_X_DDQN_HARD.pt")
+        DDQN_X_easy = DQN_Agent(n_actions=9, n_observations=9,
+                                model_path="/home/tymqsz/AI_games/weights/TTT_X_DDQN_EASY.pt")
+        self.models = {
+            "minimax": MINIMAX,
+            "ddqn_hard_o": DDQN_O_hard,
+            "ddqn_easy_o": DDQN_O_easy,
+            "ddqn_hard_x": DDQN_X_hard,
+            "ddqn_easy_x": DDQN_X_easy,
+        }
 
         bg_color = "#3d464a"   
         grid_color = "#1d2124"
@@ -72,6 +88,7 @@ class TTT(tk.Tk):
 
             self.cells[i].place(x=x_offset+x*150, y=y_offset+y*150)
         
+
         self.restart_button = tk.Button(master=self, text="restart", font=text_font,
                                       width=5, height=2, background=button_color,
                                       activebackground=board_highlight, highlightthickness=0,
@@ -85,9 +102,11 @@ class TTT(tk.Tk):
         self.O_label = tk.Label(master=self, font=text_font, text="O: ", background=button_color)
         self.X_label = tk.Label(master=self, font=text_font, text="X: ", background=button_color)
         self.p1_selection = ttk.Combobox(master=self, state="readonly",
-                                         values=["human", "minimax"], width=10, height=5, font=text_font)
+                                         values=["human", "minimax", "ddqn_hard", "ddqn_easy"],
+                                         width=10, height=5, font=text_font)
         self.p2_selection = ttk.Combobox(master=self, state="readonly",
-                                         values=["human", "minimax"], width=10, height=5, font=text_font)
+                                         values=["human", "minimax", "ddqn_hard", "ddqn_easy"],
+                                         width=10, height=5, font=text_font)
         self.p1_selection.place(x=600, y=25)
         self.p2_selection.place(x=600, y=75)
         self.O_label.place(x=550, y=25)
@@ -106,9 +125,20 @@ class TTT(tk.Tk):
             maxi = is_maxi[crt_player]
 
             if self.state.players[crt_player] != "human" and not self.state.EOG:
-                sleep(self.bot_reload)
+                sleep(self.bot_reload_time)
 
-                move = self.MiniMax.get_best_move(self.state.BOARD, maxi)
+                crt_model = self.state.players[crt_player]
+                if not crt_model == "minimax":
+                    # if crt model != minimax specify if its 'o' or 'x' player
+                    if crt_player == 0:
+                        crt_model += "_o"
+                    else:
+                        crt_model += "_x"
+                    
+                    move = self.models[crt_model].act(self.state.BOARD, legal_moves_mask=self.get_possible_moves(self.state.BOARD))
+                else:
+                    move = self.models[crt_model].get_best_move(self.state.BOARD, maxi)
+
                 self.state.selected_cell = move
                 self.move()
 
