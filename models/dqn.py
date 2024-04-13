@@ -32,12 +32,11 @@ class DQN(nn.Module):
     def forward(self, x):
         logits = self.network(x)
 
-        logits = nn.Sigmoid()(logits)
         return logits
 
 
 class DQN_Agent():
-    def __init__(self, n_observations, n_actions, env=None, model_path=None, lr=1e-4, batch_size=128, memory_cap=10000,
+    def __init__(self, n_observations, n_actions, model_path=None, lr=1e-4, batch_size=128, memory_cap=10000,
                  gamma=0.99, eps_decay=0.9995, optim=None, loss_fn=None, double_network=False, tau=0.05, big_net=False):
                  
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -51,7 +50,6 @@ class DQN_Agent():
         self.gamma = gamma
         self.batch_size = batch_size
 
-        self.env = env
 
         # init DQN
         if double_network:
@@ -114,7 +112,7 @@ class DQN_Agent():
                     possible_actions = Q_values
 
                 max_Q_val = np.max(possible_actions)
-                max_action = int(np.where(Q_values == max_Q_val)[0])
+                max_action = int(np.where(Q_values == max_Q_val)[0][0])
 
             return max_action
     
